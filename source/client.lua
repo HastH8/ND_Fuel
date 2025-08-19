@@ -57,7 +57,8 @@ function SetFuel(vehicle, fuel)
 		DecorSetFloat(vehicle, FUEL_DECOR, GetVehicleFuelLevel(vehicle))
 	end
 end
-
+exports("GetFuel", GetFuel)
+exports("SetFuel", SetFuel)
 -- returns pump position if a player is near it.
 function nearPump(coords)
     local entity = nil
@@ -225,35 +226,20 @@ end)
 local function vehicleIsFueling()
     local classMultiplier = config.vehicleClasses[GetVehicleClass(vehicleFueling)]
     local cost = 0
-    local adjustedFuel = nil
     
     while vehicleFueling do
         local fuel = GetFuel(vehicleFueling)
         if not DoesEntityExist(vehicleFueling) then
             dropNozzle()
-
             vehicleFueling = false
             break
         end
-        
+
         local newCost = ((2.0 / classMultiplier) * config.fuelCostMultiplier) - math.random(0, 100) / 100
-        local player = exports["ND_Core"]:getPlayer()
-        
-        if (player and player.bank or 0) < cost then
-            SendNUIMessage({
-                type = "warn"
-            })
+        cost = cost + newCost
 
-            vehicleFueling = false
-            break
-        end
-
-        fuel = fuel + classMultiplier*50
-        if fuel < 100 then
-            cost = cost + newCost
-        end
-
-        if fuel > 100 or fuel == 100 then
+        fuel = fuel + classMultiplier * 0.5
+        if fuel >= 100 then
             fuel = 100.0
             SetFuel(vehicleFueling, fuel)
             SendNUIMessage({
@@ -272,14 +258,14 @@ local function vehicleIsFueling()
             fuelCost = string.format("%.2f", cost),
             fuelTank = string.format("%.2f", fuel)
         })
+
         Wait(600)
     end
-    if cost ~= 0 then
+
+    if cost > 0 then
         TriggerServerEvent("ND_Fuel:pay", cost)
-        cost = 0
     end
 end
-
 -- Refuel the vehicle.
 CreateThread(function()
     while true do
@@ -303,17 +289,9 @@ CreateThread(function()
                     fuelCost = string.format("%.2f", cost),
                     fuelTank = "0.0"
                 })
-
-                local player = exports["ND_Core"]:getPlayer()
-                if (player and player.bank or 0) < cost then
-                    SendNUIMessage({
-                        type = "warn"
-                    })
-                end
-
                 Wait(800)
             end
-            if cost ~= 0 then
+            if cost > 0 then
                 TriggerServerEvent("ND_Fuel:pay", cost)
             end
         end
@@ -599,6 +577,14 @@ CreateThread(function()
                 SetFuel(pedVeh, fuel - ((GetVehicleCurrentRpm(pedVeh) * config.vehicleClasses[vehClass]) / 1.7))
             end
         end
+    end
+end)
+
+RegisterNetEvent("ND_Fuel:result", function(success)
+    if not success then
+        SendNUIMessage({
+            type = "warn"
+        })
     end
 end)
 
